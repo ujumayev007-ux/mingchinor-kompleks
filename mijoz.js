@@ -14,18 +14,16 @@ const FLAGS = { uz:'🇺🇿', ru:'🇷🇺', en:'🇬🇧' };
 
 // ---- INIT ----
 window.addEventListener('mc:db_ready', () => {
-  if (_dbInitDone) return; // Himoya: bir martadan ko'p ishlamasin
+  if (_dbInitDone) return; 
   _dbInitDone = true;
 
   setupPWA();
   listenRealtime();
 
   if (currentLang) {
-    // Til avval tanlangan — langModal ni yashirib, to'g'ri stol modaliga o'tish
     hideLangModal();
     showTableModal();
   } else {
-    // Birinchi kirish — til tanlashni ko'rsatish
     document.getElementById('langModal').classList.add('active');
   }
 });
@@ -50,7 +48,7 @@ function selectLang(lang) {
 }
 
 function loadTableModal() {
-  hideLangModal(); // langModal ochiq qolmasin
+  hideLangModal();
   showTableModal();
 }
 
@@ -99,18 +97,17 @@ function updateCurrentLangFlag() {
 
 // ---- TABLE COUNTER (ENTRY MODAL) ----
 function changeTable(delta) {
-  // Agar parametr sifatida son yoki yo'nalish kelgan bo'lsa (masalan, +1 yoki -1)
+  DB.tables = JSON.parse(localStorage.getItem('mc_tables') || '[]');
+  if (!DB.tables.length) return;
+
   if (typeof delta === 'number') {
-    if(!DB.tables.length) return;
     currentTableIdx += delta;
     if(currentTableIdx < 0) currentTableIdx = DB.tables.length - 1;
     if(currentTableIdx >= DB.tables.length) currentTableIdx = 0;
     updateTableDisplay();
-  } 
-  // Agar stol ID si yoki obyekti kelgan bo'lsa
-  else if (delta) {
+  } else if (delta) {
     const table = DB.tables.find(t => t.id == delta);
-    if (table && table.status !== 'busy') {
+    if (table) {
       selectedTable = table;
       updateHeaderTable();
     }
@@ -118,6 +115,7 @@ function changeTable(delta) {
 }
 
 function updateTableDisplay() {
+  DB.tables = JSON.parse(localStorage.getItem('mc_tables') || '[]');
   const table = DB.tables[currentTableIdx];
   const nameEl = document.getElementById('tableNameDisplay');
   const statusEl = document.getElementById('tableStatusDisplay');
@@ -172,7 +170,7 @@ function selectTable(table, containerId) {
   selectedTable = table;
   renderTableGrid(containerId);
   const btn = document.getElementById('openMenuBtn');
-  if(btn) btn.disabled = false;
+  if(btn) btn.disabled = (table.status === 'busy');
   updateHeaderTable();
   if(containerId === 'tableChangeGrid') {
     closeTableChange();
@@ -227,8 +225,9 @@ function updateHeaderTable() {
 
 // ---- OPEN MENU ----
 function openMenu() {
-  if(!selectedTable) return;
-  setGuestCount(document.getElementById('guestInput').value);
+  if(!selectedTable || selectedTable.status === 'busy') return;
+  const gInput = document.getElementById('guestInput');
+  if(gInput) setGuestCount(gInput.value);
   document.getElementById('tableModal').classList.remove('active');
   document.getElementById('menuPage').classList.remove('hidden');
   applyTranslations();
@@ -335,11 +334,11 @@ function refreshCard(itemId) {
   if(!controls) return;
   controls.innerHTML = qty > 0 ? `
     <div class="qty-ctrl">
-      <button class="qty-btn" onclick="updateCart(${itemId},-1)">−</button>
+      <button class="qty-btn" onclick="updateCart('${itemId}',-1)">−</button>
       <span class="qty-num">${qty}</span>
-      <button class="qty-btn" onclick="updateCart(${itemId},1)">+</button>
+      <button class="qty-btn" onclick="updateCart('${itemId}',1)">+</button>
     </div>
-  ` : `<button class="add-btn" onclick="updateCart(${itemId},1)">${t('addToCart', currentLang)}</button>`;
+  ` : `<button class="add-btn" onclick="updateCart('${itemId}',1)">${t('addToCart', currentLang)}</button>`;
 }
 
 function updateCartFAB() {
@@ -417,9 +416,9 @@ function renderCartItems() {
         <div class="cart-item-price">${formatPrice(item.sellPrice * qty)} ${t('sum', currentLang)}</div>
       </div>
       <div class="cart-item-qty">
-        <button class="cq-btn" onclick="updateCartModal(${id},-1)">−</button>
+        <button class="cq-btn" onclick="updateCartModal('${id}',-1)">−</button>
         <span class="cq-num">${qty}</span>
-        <button class="cq-btn" onclick="updateCartModal(${id},1)">+</button>
+        <button class="cq-btn" onclick="updateCartModal('${id}',1)">+</button>
       </div>
     `;
     container.appendChild(div);
