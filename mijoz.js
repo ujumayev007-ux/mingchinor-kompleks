@@ -99,11 +99,22 @@ function updateCurrentLangFlag() {
 
 // ---- TABLE COUNTER (ENTRY MODAL) ----
 function changeTable(delta) {
-  if(!DB.tables.length) return;
-  currentTableIdx += delta;
-  if(currentTableIdx < 0) currentTableIdx = DB.tables.length - 1;
-  if(currentTableIdx >= DB.tables.length) currentTableIdx = 0;
-  updateTableDisplay();
+  // Agar parametr sifatida son yoki yo'nalish kelgan bo'lsa (masalan, +1 yoki -1)
+  if (typeof delta === 'number') {
+    if(!DB.tables.length) return;
+    currentTableIdx += delta;
+    if(currentTableIdx < 0) currentTableIdx = DB.tables.length - 1;
+    if(currentTableIdx >= DB.tables.length) currentTableIdx = 0;
+    updateTableDisplay();
+  } 
+  // Agar stol ID si yoki obyekti kelgan bo'lsa
+  else if (delta) {
+    const table = DB.tables.find(t => t.id == delta);
+    if (table && table.status !== 'busy') {
+      selectedTable = table;
+      updateHeaderTable();
+    }
+  }
 }
 
 function updateTableDisplay() {
@@ -236,7 +247,6 @@ function loadCategories() {
     const btn = document.createElement('button');
     btn.className = 'cat-btn';
     btn.dataset.cat = cat.id;
-    // Ko'p tilli nom (name_uz, name_ru, name_en) yoki default .name
     btn.textContent = cat['name_' + currentLang] || cat.name;
     btn.onclick = () => filterCategory(cat.id);
     bar.appendChild(btn);
@@ -468,34 +478,27 @@ function placeOrder() {
 
   DB.broadcast('new_order', order);
 
-  // Buyurtma yuborildi — sahifani to'liq reset qilish
   cart = {};
   updateCartFAB();
   closeCart();
   showToast(t('orderSent', currentLang));
 
-  // 1.5 soniyadan keyin stol tanlash modaliga qaytarish
   setTimeout(() => {
     resetToTableModal();
   }, 1500);
 }
 
-// ---- RESET: Stol tanlash modaliga qaytarish ----
+// ---- RESET ----
 function resetToTableModal() {
-  // Sahifani yashirish
   document.getElementById('menuPage').classList.add('hidden');
-  // Barcha modalni yopish (langModal ham ochiq qolmasin)
   hideLangModal();
   document.getElementById('tableModal').classList.remove('active');
-  // Stol va mehmon sonini tozalash
   selectedTable = null;
   setGuestCount(1);
   const openBtn = document.getElementById('openMenuBtn');
   if(openBtn) openBtn.disabled = true;
-  // Savat tozalash
   cart = {};
   updateCartFAB();
-  // Stol modalini ko'rsatish (showTableModal() ichida langModal yashiriladi)
   showTableModal();
 }
 
@@ -575,7 +578,6 @@ function setupPWA() {
     e.preventDefault();
     deferredPrompt = e;
     
-    // Headerdagi install tugmasini ko'rsatish
     const headerInstallBtn = document.getElementById('headerInstallBtn');
     if(headerInstallBtn) headerInstallBtn.style.display = 'flex';
 
@@ -602,7 +604,6 @@ function dismissInstall() {
 
 // ---- REALTIME ----
 function listenRealtime() {
-  // Firestore real-time (boshqa qurilmalar / boshqa sahifalar)
   window.addEventListener('mc:data_changed', e => {
     const { key, items } = e.detail;
     if(key === 'tables') {
@@ -617,7 +618,6 @@ function listenRealtime() {
       }
     }
   });
-  // localStorage real-time (bir qurilmadagi boshqa tablar)
   window.addEventListener('storage', e => {
     if(e.key === 'mc_tables') {
       DB.tables = JSON.parse(e.newValue || '[]');
@@ -633,21 +633,16 @@ function listenRealtime() {
   });
 }
 
-// Stol holati o'zgarganda barcha UI ni yangilash
 function _refreshTableUI() {
-  // TableModal ochiq bo'lsa — table counter ni yangilash
   const tableModal = document.getElementById('tableModal');
   if(tableModal && tableModal.classList.contains('active')) {
     updateTableDisplay();
-    // Agar tableGrid render qilingan bo'lsa (eski ochiq modal)
     const tg = document.getElementById('tableGrid');
     if(tg && tg.children.length > 0) renderTableGrid('tableGrid');
   }
-  // TableChange modal ochiq bo'lsa
   const tcModal = document.getElementById('tableChangeModal');
   if(tcModal && tcModal.classList.contains('active')) {
     renderTableGrid('tableChangeGrid');
   }
-  // Header badge ni yangilash
   updateHeaderTable();
 }
