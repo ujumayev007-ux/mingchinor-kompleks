@@ -100,18 +100,12 @@ function changeTable(delta) {
   DB.tables = JSON.parse(localStorage.getItem('mc_tables') || '[]');
   if (!DB.tables.length) return;
 
-  if (typeof delta === 'number') {
-    currentTableIdx += delta;
-    if(currentTableIdx < 0) currentTableIdx = DB.tables.length - 1;
-    if(currentTableIdx >= DB.tables.length) currentTableIdx = 0;
-    updateTableDisplay();
-  } else if (delta) {
-    const table = DB.tables.find(t => t.id == delta);
-    if (table) {
-      selectedTable = table;
-      updateHeaderTable();
-    }
-  }
+  currentTableIdx += delta;
+  
+  if (currentTableIdx < 0) currentTableIdx = DB.tables.length - 1;
+  if (currentTableIdx >= DB.tables.length) currentTableIdx = 0;
+  
+  updateTableDisplay();
 }
 
 function updateTableDisplay() {
@@ -121,21 +115,22 @@ function updateTableDisplay() {
   const statusEl = document.getElementById('tableStatusDisplay');
   const openBtn = document.getElementById('openMenuBtn');
 
-  if(!table) {
-    if(nameEl) nameEl.textContent = '---';
-    if(statusEl) statusEl.textContent = '';
-    if(openBtn) openBtn.disabled = true;
+  if (!table) {
+    if (nameEl) nameEl.textContent = '---';
+    if (statusEl) statusEl.textContent = '';
+    if (openBtn) openBtn.disabled = true;
+    selectedTable = null;
     return;
   }
 
   selectedTable = table;
-  if(nameEl) nameEl.textContent = table.name;
+  if (nameEl) nameEl.textContent = table.name;
   
-  if(statusEl) {
+  if (statusEl) {
     const isBusy = table.status === 'busy';
     statusEl.textContent = isBusy ? t('tableOccupied', currentLang) : t('tableFree', currentLang);
     statusEl.className = isBusy ? 'status-busy' : 'status-free';
-    if(openBtn) openBtn.disabled = isBusy;
+    if (openBtn) openBtn.disabled = isBusy;
   }
   
   updateHeaderTable();
