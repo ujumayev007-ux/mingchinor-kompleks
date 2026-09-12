@@ -79,16 +79,16 @@ const _fsKey = {
 // ---- DB OBJECT ----
 const DB = {
   // In-memory cache (localStorage fallback initially)
-  categories:  JSON.parse(localStorage.getItem('mc_categories')  || '[]'),
+  categories:      JSON.parse(localStorage.getItem('mc_categories')  || '[]'),
   tableCategories: JSON.parse(localStorage.getItem('mc_table_categories') || '[]'),
-  menuItems:   JSON.parse(localStorage.getItem('mc_menu')         || '[]'),
+  menuItems:       JSON.parse(localStorage.getItem('mc_menu')         || '[]'),
   ingredients: JSON.parse(localStorage.getItem('mc_ingredients')  || '[]'),
   prixod: JSON.parse(localStorage.getItem('mc_prixod') || '[]'),
   products: JSON.parse(localStorage.getItem('mc_products') || '[]'),
-  tables:      JSON.parse(localStorage.getItem('mc_tables')       || JSON.stringify(_defaults.tables)),
-  waiters:     JSON.parse(localStorage.getItem('mc_waiters')      || JSON.stringify(_defaults.waiters)),
-  orders:      JSON.parse(localStorage.getItem('mc_orders')       || '[]'),
-  checks:      JSON.parse(localStorage.getItem('mc_checks')       || '[]'),
+  tables:      JSON.parse(localStorage.getItem('mc_tables')        || JSON.stringify(_defaults.tables)),
+  waiters:     JSON.parse(localStorage.getItem('mc_waiters')       || JSON.stringify(_defaults.waiters)),
+  orders:      JSON.parse(localStorage.getItem('mc_orders')        || '[]'),
+  checks:      JSON.parse(localStorage.getItem('mc_checks')        || '[]'),
   waiterCalls: JSON.parse(localStorage.getItem('mc_waiter_calls') || '[]'),
 
   cafeId: CAFE_ID,
@@ -124,7 +124,7 @@ const DB = {
   },
 
   addOrder(order) {
-    order.id        = this.nextId(this.orders);
+    order.id         = this.nextId(this.orders);
     order.createdAt = new Date().toISOString();
     order.status    = 'pending';
     this.orders.push(order);
@@ -134,7 +134,7 @@ const DB = {
   },
 
   addCheck(check) {
-    check.id        = this.nextId(this.checks);
+    check.id         = this.nextId(this.checks);
     check.createdAt = new Date().toISOString();
     this.checks.push(check);
     this.save('checks');
@@ -250,7 +250,6 @@ window.addEventListener('storage', e => {
 });
 
 // ---- BOOTSTRAP ----
-// DOMContentLoaded da Firestore dan yuklaydi, tayyor bo'lganda 'mc:db_ready' event chiqaradi
 window.addEventListener('DOMContentLoaded', async () => {
   await _loadFromFirestore();
   _setupListeners();
