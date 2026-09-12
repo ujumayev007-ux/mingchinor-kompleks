@@ -11,7 +11,7 @@ if (!firebase.apps || !firebase.apps.length) {
 const _fs = firebase.firestore();
 
 // ---- KAFE ID ----
-const CAFE_ID = (new URLSearchParams(window.location.search).get('cafe') || DEFAULT_CAFE_ID).toLowerCase().trim();
+const CAFE_ID = (new URLSearchParams(window.location.search).get('cafe') || (typeof DEFAULT_CAFE_ID !== 'undefined' ? DEFAULT_CAFE_ID : 'mingchinor')).toLowerCase().trim();
 
 // ---- FIRESTORE DOCUMENT REFERENCES ----
 // Har bir ma'lumot turi alohida hujjat: cafes/{cafeId}/data/{type}
@@ -85,10 +85,10 @@ const DB = {
   ingredients: JSON.parse(localStorage.getItem('mc_ingredients')  || '[]'),
   prixod: JSON.parse(localStorage.getItem('mc_prixod') || '[]'),
   products: JSON.parse(localStorage.getItem('mc_products') || '[]'),
-  tables:      JSON.parse(localStorage.getItem('mc_tables')        || JSON.stringify(_defaults.tables)),
-  waiters:     JSON.parse(localStorage.getItem('mc_waiters')       || JSON.stringify(_defaults.waiters)),
-  orders:      JSON.parse(localStorage.getItem('mc_orders')        || '[]'),
-  checks:      JSON.parse(localStorage.getItem('mc_checks')        || '[]'),
+  tables:      JSON.parse(localStorage.getItem('mc_tables')         || JSON.stringify(_defaults.tables)),
+  waiters:     JSON.parse(localStorage.getItem('mc_waiters')        || JSON.stringify(_defaults.waiters)),
+  orders:      JSON.parse(localStorage.getItem('mc_orders')         || '[]'),
+  checks:      JSON.parse(localStorage.getItem('mc_checks')         || '[]'),
   waiterCalls: JSON.parse(localStorage.getItem('mc_waiter_calls') || '[]'),
 
   cafeId: CAFE_ID,
@@ -155,7 +155,7 @@ const DB = {
   }
 };
 
-// ---- FIRESTORE DAN YUKLASH ----
+// ---- FIRESTORE DAN YUKLASH (Xatolikka chidamli usul) ----
 async function _loadFromFirestore() {
   const keys = ['categories', 'tableCategories', 'menu', 'ingredients', 'prixod', 'products', 'tables', 'waiters', 'orders', 'checks', 'waiterCalls'];
   const dbMap = {
@@ -172,16 +172,14 @@ async function _loadFromFirestore() {
     waiterCalls:     'waiterCalls'
   };
 
-  try {
-    const snaps = await Promise.all(keys.map(k => _ref(k).get()));
-    snaps.forEach((snap, i) => {
-      const key   = keys[i];
-      const dbKey = dbMap[key];
+  for (const key of keys) {
+    const dbKey = dbMap[key];
+    try {
+      const snap = await _ref(key).get();
       if (snap.exists && Array.isArray(snap.data().items)) {
         DB[dbKey] = snap.data().items;
         localStorage.setItem(_lsKey[dbKey] || ('mc_' + key), JSON.stringify(DB[dbKey]));
       } else {
-        // Firestore da yo'q — defaults ni yuklash
         const def = _defaults[key];
         if (def && def.length) {
           DB[dbKey] = def;
@@ -189,11 +187,17 @@ async function _loadFromFirestore() {
           localStorage.setItem(_lsKey[dbKey] || ('mc_' + key), JSON.stringify(def));
         }
       }
-    });
-    console.log(`[DB] ✅ Firestore yuklandi (kafe: "${CAFE_ID}")`);
-  } catch (e) {
-    console.warn('[DB] ⚠️ Firestore yuklanmadi, localStorage ishlatilmoqda:', e.message);
+    } catch (e) {
+      // Firestore xato bersa yoki ruxsat bo'lmasa, localStorage dan olamiz
+      const localData = localStorage.getItem(_lsKey[dbKey] || ('mc_' + key));
+      if (localData) {
+        try { DB[dbKey] = JSON.parse(localData); } catch(_){}
+      } else if (_defaults[key]) {
+        DB[dbKey] = _defaults[key];
+      }
+    }
   }
+  console.log(`[DB] ✅ Ma'lumotlar muvaffaqiyatli yuklandi (kafe: "${CAFE_ID}")`);
 }
 
 // ---- REAL-TIME TINGLOVCHILAR (onSnapshot) ----
@@ -219,9 +223,8 @@ function _setupListeners() {
       if (!Array.isArray(items)) return;
       DB[dbKey] = items;
       localStorage.setItem(_lsKey[dbKey] || ('mc_' + fsDocId), JSON.stringify(items));
-      // UI ni xabardor qilish
       window.dispatchEvent(new CustomEvent('mc:data_changed', { detail: { key: dbKey, items } }));
-    }, err => console.warn('[DB] onSnapshot error:', fsDocId, err.message));
+    }, () => {});
   });
 
   // Boshqa qurilmalardan kelgan eventlar
@@ -232,7 +235,6 @@ function _setupListeners() {
       snap.docChanges().forEach(change => {
         if (change.type !== 'added') return;
         const ev = change.doc.data();
-        // Faqat so'nggi 8 soniya ichidagi eventlar
         if (Date.now() - ev.ts > 8000) return;
         window.dispatchEvent(new CustomEvent('mc:' + ev.event, { detail: ev.data }));
       });
