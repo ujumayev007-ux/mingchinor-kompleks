@@ -85,7 +85,14 @@ const DB = {
   ingredients: JSON.parse(localStorage.getItem('mc_ingredients')  || '[]'),
   prixod: JSON.parse(localStorage.getItem('mc_prixod') || '[]'),
   products: JSON.parse(localStorage.getItem('mc_products') || '[]'),
-  tables:      JSON.parse(localStorage.getItem('mc_tables')       || JSON.stringify(_defaults.tables)),
+  tables:      (() => {
+    const saved = localStorage.getItem('mc_tables');
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch(e) {}
+    return _defaults.tables;
+  })(),
   waiters:     JSON.parse(localStorage.getItem('mc_waiters')      || JSON.stringify(_defaults.waiters)),
   orders:      JSON.parse(localStorage.getItem('mc_orders')       || '[]'),
   checks:      JSON.parse(localStorage.getItem('mc_checks')       || '[]'),
@@ -177,7 +184,7 @@ async function _loadFromFirestore() {
     snaps.forEach((snap, i) => {
       const key   = keys[i];
       const dbKey = dbMap[key];
-      if (snap.exists && Array.isArray(snap.data().items)) {
+      if (snap.exists && Array.isArray(snap.data().items) && snap.data().items.length > 0) {
         DB[dbKey] = snap.data().items;
         localStorage.setItem(_lsKey[dbKey] || ('mc_' + key), JSON.stringify(DB[dbKey]));
       } else {
@@ -216,7 +223,7 @@ function _setupListeners() {
     _ref(fsDocId).onSnapshot(snap => {
       if (!snap.exists) return;
       const items = snap.data().items;
-      if (!Array.isArray(items)) return;
+      if (!Array.isArray(items) || items.length === 0) return;
       DB[dbKey] = items;
       localStorage.setItem(_lsKey[dbKey] || ('mc_' + fsDocId), JSON.stringify(items));
       // UI ni xabardor qilish
