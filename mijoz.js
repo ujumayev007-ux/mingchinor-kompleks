@@ -35,7 +35,25 @@ function hideLangModal() {
 }
 
 function showTableModal() {
-  DB.tables = JSON.parse(localStorage.getItem('mc_tables') || '[]');
+  const savedTables = localStorage.getItem('mc_tables');
+  try {
+    const parsed = JSON.parse(savedTables);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      DB.tables = parsed;
+    }
+  } catch(e) {}
+  
+  if (!DB.tables || !DB.tables.length) {
+    DB.tables = [
+      {id:1,name:'Stol 1',status:'free',categoryId:null},
+      {id:2,name:'Stol 2',status:'free',categoryId:null},
+      {id:3,name:'Stol 3',status:'free',categoryId:null},
+      {id:4,name:'Stol 4',status:'free',categoryId:null},
+      {id:5,name:'Stol 5',status:'free',categoryId:null},
+      {id:6,name:'Stol 6',status:'free',categoryId:null},
+    ];
+  }
+
   currentTableIdx = 0;
   applyTranslations();
   updateTableDisplay();
@@ -136,12 +154,27 @@ function updateTableDisplay() {
 function renderTableGrid(containerId) {
   const container = document.getElementById(containerId);
   if(!container) return;
-  DB.tables = JSON.parse(localStorage.getItem('mc_tables') || '[]');
-  container.innerHTML = '';
-  if(!DB.tables.length) {
-    container.innerHTML = `<p style="color:var(--text-dim);font-size:13px;text-align:center;grid-column:1/-1;padding:20px">${t('noTables', currentLang)}</p>`;
-    return;
+  
+  const savedTables = localStorage.getItem('mc_tables');
+  try {
+    const parsed = JSON.parse(savedTables);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      DB.tables = parsed;
+    }
+  } catch(e) {}
+
+  if (!DB.tables || !DB.tables.length) {
+    DB.tables = [
+      {id:1,name:'Stol 1',status:'free',categoryId:null},
+      {id:2,name:'Stol 2',status:'free',categoryId:null},
+      {id:3,name:'Stol 3',status:'free',categoryId:null},
+      {id:4,name:'Stol 4',status:'free',categoryId:null},
+      {id:5,name:'Stol 5',status:'free',categoryId:null},
+      {id:6,name:'Stol 6',status:'free',categoryId:null},
+    ];
   }
+
+  container.innerHTML = '';
   DB.tables.forEach(table => {
     const div = document.createElement('div');
     div.className = `table-item ${table.status === 'busy' ? 'busy' : 'free'} ${selectedTable?.id == table.id ? 'selected' : ''}`;
@@ -236,7 +269,6 @@ function loadCategories() {
     const btn = document.createElement('button');
     btn.className = 'cat-btn';
     btn.dataset.cat = cat.id;
-    // Ko'p tilli nom (name_uz, name_ru, name_en) yoki default .name
     btn.textContent = cat['name_' + currentLang] || cat.name;
     btn.onclick = () => filterCategory(cat.id);
     bar.appendChild(btn);
@@ -468,34 +500,27 @@ function placeOrder() {
 
   DB.broadcast('new_order', order);
 
-  // Buyurtma yuborildi — sahifani to'liq reset qilish
   cart = {};
   updateCartFAB();
   closeCart();
   showToast(t('orderSent', currentLang));
 
-  // 1.5 soniyadan keyin stol tanlash modaliga qaytarish
   setTimeout(() => {
     resetToTableModal();
   }, 1500);
 }
 
-// ---- RESET: Stol tanlash modaliga qaytarish ----
+// ---- RESET ----
 function resetToTableModal() {
-  // Sahifani yashirish
   document.getElementById('menuPage').classList.add('hidden');
-  // Barcha modalni yopish (langModal ham ochiq qolmasin)
   hideLangModal();
   document.getElementById('tableModal').classList.remove('active');
-  // Stol va mehmon sonini tozalash
   selectedTable = null;
   setGuestCount(1);
   const openBtn = document.getElementById('openMenuBtn');
   if(openBtn) openBtn.disabled = true;
-  // Savat tozalash
   cart = {};
   updateCartFAB();
-  // Stol modalini ko'rsatish (showTableModal() ichida langModal yashiriladi)
   showTableModal();
 }
 
@@ -575,7 +600,6 @@ function setupPWA() {
     e.preventDefault();
     deferredPrompt = e;
     
-    // Headerdagi install tugmasini ko'rsatish
     const headerInstallBtn = document.getElementById('headerInstallBtn');
     if(headerInstallBtn) headerInstallBtn.style.display = 'flex';
 
@@ -602,7 +626,6 @@ function dismissInstall() {
 
 // ---- REALTIME ----
 function listenRealtime() {
-  // Firestore real-time (boshqa qurilmalar / boshqa sahifalar)
   window.addEventListener('mc:data_changed', e => {
     const { key, items } = e.detail;
     if(key === 'tables') {
@@ -617,7 +640,6 @@ function listenRealtime() {
       }
     }
   });
-  // localStorage real-time (bir qurilmadagi boshqa tablar)
   window.addEventListener('storage', e => {
     if(e.key === 'mc_tables') {
       DB.tables = JSON.parse(e.newValue || '[]');
@@ -633,21 +655,16 @@ function listenRealtime() {
   });
 }
 
-// Stol holati o'zgarganda barcha UI ni yangilash
 function _refreshTableUI() {
-  // TableModal ochiq bo'lsa — table counter ni yangilash
   const tableModal = document.getElementById('tableModal');
   if(tableModal && tableModal.classList.contains('active')) {
     updateTableDisplay();
-    // Agar tableGrid render qilingan bo'lsa (eski ochiq modal)
     const tg = document.getElementById('tableGrid');
     if(tg && tg.children.length > 0) renderTableGrid('tableGrid');
   }
-  // TableChange modal ochiq bo'lsa
   const tcModal = document.getElementById('tableChangeModal');
   if(tcModal && tcModal.classList.contains('active')) {
     renderTableGrid('tableChangeGrid');
   }
-  // Header badge ni yangilash
   updateHeaderTable();
 }
