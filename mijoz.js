@@ -8,38 +8,65 @@ let currentTableIdx = 0;
 let guestCount = 1;
 let cart = {};
 let deferredPrompt = null;
-let _dbInitDone = false; // mc:db_ready bir martadan ortiq ishlamasin
-
-const FLAGS = { uz:'🇺🇿', ru:'🇷🇺', en:'🇬🇧' };
+let _initDone = false;
 
 // ---- INIT ----
-window.addEventListener('mc:db_ready', () => {
-  if (_dbInitDone) return; // Himoya: bir martadan ko'p ishlamasin
-  _dbInitDone = true;
+function initApp() {
+  if (_initDone) return;
+  _initDone = true;
 
   setupPWA();
   listenRealtime();
+  loadTablesFromStorage();
 
   if (currentLang) {
-    // Til avval tanlangan — langModal ni yashirib, to'g'ri stol modaliga o'tish
     hideLangModal();
     showTableModal();
   } else {
-    // Birinchi kirish — til tanlashni ko'rsatish
     document.getElementById('langModal').classList.add('active');
   }
+}
+
+window.addEventListener('DOMContentLoaded', initApp);
+window.addEventListener('mc:db_ready', initApp);
+// Zaxira sifatida load ham qo'shamiz
+window.addEventListener('load', () => {
+  setTimeout(initApp, 100);
 });
 
+function loadTablesFromStorage() {
+  const savedTables = localStorage.getItem('mc_tables');
+  try {
+    const parsed = JSON.parse(savedTables);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      if (typeof DB !== 'undefined') DB.tables = parsed;
+    }
+  } catch(e) {}
+
+  if (typeof DB !== 'undefined' && (!DB.tables || !DB.tables.length)) {
+    DB.tables = [
+      {id:1,name:'Stol 1',status:'free',categoryId:null},
+      {id:2,name:'Stol 2',status:'free',categoryId:null},
+      {id:3,name:'Stol 3',status:'free',categoryId:null},
+      {id:4,name:'Stol 4',status:'free',categoryId:null},
+      {id:5,name:'Stol 5',status:'free',categoryId:null},
+      {id:6,name:'Stol 6',status:'free',categoryId:null},
+    ];
+  }
+}
+
 function hideLangModal() {
-  document.getElementById('langModal').classList.remove('active');
+  const modal = document.getElementById('langModal');
+  if(modal) modal.classList.remove('active');
 }
 
 function showTableModal() {
-  DB.tables = JSON.parse(localStorage.getItem('mc_tables') || '[]');
+  loadTablesFromStorage();
   currentTableIdx = 0;
   applyTranslations();
   updateTableDisplay();
-  document.getElementById('tableModal').classList.add('active');
+  const tableModal = document.getElementById('tableModal');
+  if(tableModal) tableModal.classList.add('active');
 }
 
 function selectLang(lang) {
@@ -50,28 +77,31 @@ function selectLang(lang) {
 }
 
 function loadTableModal() {
-  hideLangModal(); // langModal ochiq qolmasin
+  hideLangModal();
   showTableModal();
 }
 
 function applyTranslations() {
   if(!currentLang) return;
-  document.getElementById('selectLangText').textContent = t('selectLang', currentLang);
-  document.getElementById('brandSubtitle1').textContent = t('kompleks', currentLang);
-  document.getElementById('brandSubtitle2').textContent = t('kompleks', currentLang);
-  document.getElementById('tableLabelText').textContent = t('tableLabel', currentLang);
-  document.getElementById('guestCountText').textContent = t('guestCount', currentLang);
-  document.getElementById('openMenuText').textContent = t('openMenu', currentLang);
-  document.getElementById('callWaiterText').textContent = t('callWaiter', currentLang);
-  document.getElementById('allCatText').textContent = t('all', currentLang);
-  document.getElementById('cartTitle').textContent = t('cart', currentLang);
-  document.getElementById('totalText').textContent = t('total', currentLang);
-  document.getElementById('serviceFeeLabel').textContent = t('serviceFee', currentLang) + ':';
-  document.getElementById('cartGuestLabel').textContent = t('guestCount', currentLang);
-  document.getElementById('emptyCartText').textContent = t('emptyCart', currentLang);
-  document.getElementById('orderBtnText').textContent = t('order', currentLang);
-  document.getElementById('selectLangText2').textContent = t('selectLang', currentLang);
-  document.getElementById('tableChangeTitleText').textContent = t('tableChange', currentLang);
+  
+  const setTxt = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+  
+  setTxt('selectLangText', t('selectLang', currentLang));
+  setTxt('brandSubtitle1', t('kompleks', currentLang));
+  setTxt('brandSubtitle2', t('kompleks', currentLang));
+  setTxt('tableLabelText', t('tableLabel', currentLang));
+  setTxt('guestCountText', t('guestCount', currentLang));
+  setTxt('openMenuText', t('openMenu', currentLang));
+  setTxt('callWaiterText', t('callWaiter', currentLang));
+  setTxt('allCatText', t('all', currentLang));
+  setTxt('cartTitle', t('cart', currentLang));
+  setTxt('totalText', t('total', currentLang));
+  setTxt('serviceFeeLabel', t('serviceFee', currentLang) + ':');
+  setTxt('cartGuestLabel', t('guestCount', currentLang));
+  setTxt('emptyCartText', t('emptyCart', currentLang));
+  setTxt('orderBtnText', t('order', currentLang));
+  setTxt('selectLangText2', t('selectLang', currentLang));
+  setTxt('tableChangeTitleText', t('tableChange', currentLang));
   
   const guestInput = document.getElementById('guestInput');
   if(guestInput) guestInput.placeholder = t('guestPlaceholder', currentLang);
@@ -79,12 +109,10 @@ function applyTranslations() {
   const noteEl = document.getElementById('orderNote');
   if(noteEl) noteEl.placeholder = t('notePlaceholder', currentLang);
   
-  const installAppEl = document.getElementById('installAppText');
-  if(installAppEl) installAppEl.textContent = t('installApp', currentLang);
-  const installDescEl = document.getElementById('installDescText');
-  if(installDescEl) installDescEl.textContent = t('installDesc', currentLang);
-  const installBtn = document.getElementById('installBtn');
-  if(installBtn) installBtn.textContent = t('install', currentLang);
+  setTxt('installAppText', t('installApp', currentLang));
+  setTxt('installDescText', t('installDesc', currentLang));
+  setTxt('installBtn', t('install', currentLang));
+  
   const laterBtn = document.querySelector('.btn-later');
   if(laterBtn) laterBtn.textContent = t('later', currentLang);
   
@@ -94,20 +122,26 @@ function applyTranslations() {
 
 function updateCurrentLangFlag() {
   const el = document.getElementById('currentLangFlag');
+  const FLAGS = { uz:'🇺🇿', ru:'🇷🇺', en:'🇬🇧' };
   if(el) el.textContent = FLAGS[currentLang] || '🌐';
 }
 
 // ---- TABLE COUNTER (ENTRY MODAL) ----
 function changeTable(delta) {
-  if(!DB.tables.length) return;
+  loadTablesFromStorage();
+  const tables = (typeof DB !== 'undefined' && DB.tables) ? DB.tables : [];
+  if(!tables.length) return;
+  
   currentTableIdx += delta;
-  if(currentTableIdx < 0) currentTableIdx = DB.tables.length - 1;
-  if(currentTableIdx >= DB.tables.length) currentTableIdx = 0;
+  if(currentTableIdx < 0) currentTableIdx = tables.length - 1;
+  if(currentTableIdx >= tables.length) currentTableIdx = 0;
   updateTableDisplay();
 }
 
 function updateTableDisplay() {
-  const table = DB.tables[currentTableIdx];
+  loadTablesFromStorage();
+  const tables = (typeof DB !== 'undefined' && DB.tables) ? DB.tables : [];
+  const table = tables[currentTableIdx];
   const nameEl = document.getElementById('tableNameDisplay');
   const statusEl = document.getElementById('tableStatusDisplay');
   const openBtn = document.getElementById('openMenuBtn');
@@ -136,21 +170,22 @@ function updateTableDisplay() {
 function renderTableGrid(containerId) {
   const container = document.getElementById(containerId);
   if(!container) return;
-  DB.tables = JSON.parse(localStorage.getItem('mc_tables') || '[]');
+  
+  loadTablesFromStorage();
+  const tables = (typeof DB !== 'undefined' && DB.tables) ? DB.tables : [];
+
   container.innerHTML = '';
-  if(!DB.tables.length) {
-    container.innerHTML = `<p style="color:var(--text-dim);font-size:13px;text-align:center;grid-column:1/-1;padding:20px">${t('noTables', currentLang)}</p>`;
-    return;
-  }
-  DB.tables.forEach(table => {
+  tables.forEach(table => {
     const div = document.createElement('div');
-    div.className = `table-item ${table.status === 'busy' ? 'busy' : 'free'} ${selectedTable?.id == table.id ? 'selected' : ''}`;
+    const isBusy = table.status === 'busy';
+    const isSelected = selectedTable?.id == table.id;
+    div.className = `table-item ${isBusy ? 'busy' : 'free'} ${isSelected ? 'selected' : ''}`;
     div.innerHTML = `
-      <span class="t-icon">${table.status==='busy' ? '🔴' : '🟢'}</span>
+      <span class="t-icon">${isBusy ? '🔴' : '🟢'}</span>
       <span class="t-name">${table.name}</span>
-      <span class="t-status">${table.status==='busy' ? t('tableOccupied', currentLang) : t('tableFree', currentLang)}</span>
+      <span class="t-status">${isBusy ? t('tableOccupied', currentLang) : t('tableFree', currentLang)}</span>
     `;
-    if(table.status !== 'busy') {
+    if(!isBusy) {
       div.onclick = () => selectTable(table, containerId);
     }
     container.appendChild(div);
@@ -217,9 +252,15 @@ function updateHeaderTable() {
 // ---- OPEN MENU ----
 function openMenu() {
   if(!selectedTable) return;
-  setGuestCount(document.getElementById('guestInput').value);
-  document.getElementById('tableModal').classList.remove('active');
-  document.getElementById('menuPage').classList.remove('hidden');
+  const gInput = document.getElementById('guestInput');
+  if(gInput) setGuestCount(gInput.value);
+  
+  const tableModal = document.getElementById('tableModal');
+  if(tableModal) tableModal.classList.remove('active');
+  
+  const menuPage = document.getElementById('menuPage');
+  if(menuPage) menuPage.classList.remove('hidden');
+  
   applyTranslations();
   loadCategories();
   loadMenuItems();
@@ -227,16 +268,17 @@ function openMenu() {
 
 // ---- CATEGORIES ----
 function loadCategories() {
-  DB.categories = JSON.parse(localStorage.getItem('mc_categories') || '[]');
+  const cats = JSON.parse(localStorage.getItem('mc_categories') || '[]');
   const bar = document.getElementById('categoriesBar');
+  if(!bar) return;
+  
   bar.innerHTML = `<button class="cat-btn active" data-cat="all" onclick="filterCategory('all')">${t('all', currentLang)}</button>`;
   
-  const sortedCats = DB.categories.sort((a,b) => (a.order || 0) - (b.order || 0));
+  const sortedCats = cats.sort((a,b) => (a.order || 0) - (b.order || 0));
   sortedCats.forEach(cat => {
     const btn = document.createElement('button');
     btn.className = 'cat-btn';
     btn.dataset.cat = cat.id;
-    // Ko'p tilli nom (name_uz, name_ru, name_en) yoki default .name
     btn.textContent = cat['name_' + currentLang] || cat.name;
     btn.onclick = () => filterCategory(cat.id);
     bar.appendChild(btn);
@@ -251,15 +293,17 @@ function filterCategory(catId) {
 
 // ---- MENU ITEMS ----
 function loadMenuItems() {
-  DB.menuItems = JSON.parse(localStorage.getItem('mc_menu') || '[]');
   renderMenuItems('all');
 }
 
 function renderMenuItems(catFilter) {
   const content = document.getElementById('menuContent');
+  if(!content) return;
+  
   document.getElementById('loadingState')?.remove();
   
-  let items = DB.menuItems.filter(m => !m.deleted);
+  let menuItems = JSON.parse(localStorage.getItem('mc_menu') || '[]');
+  let items = menuItems.filter(m => !m.deleted);
   if(catFilter !== 'all') items = items.filter(m => m.categoryId == catFilter);
   
   items.sort((a,b) => (a.order || 0) - (b.order || 0));
@@ -281,9 +325,11 @@ function renderMenuItems(catFilter) {
     card.id = `card-${item.id}`;
     const itemName = item['name_' + currentLang] || item.name;
     const imgSrc = item.image || '';
+    const safeName = itemName.replace(/'/g, "\\'");
     const imgHtml = imgSrc
-      ? `<img class="menu-card-img" src="${imgSrc}" alt="${itemName}" loading="lazy" onclick="openImgModal('${imgSrc}','${itemName.replace(/'/g,"\\'")}',${item.sellPrice})">`
-      : `<div class="menu-card-img-placeholder" onclick="openImgModal('','${itemName.replace(/'/g,"\\'")}',${item.sellPrice})">🍽️</div>`;
+      ? `<img class="menu-card-img" src="${imgSrc}" alt="${itemName}" loading="lazy" onclick="openImgModal('${imgSrc}','${safeName}',${item.sellPrice})">`
+      : `<div class="menu-card-img-placeholder" onclick="openImgModal('','${safeName}',${item.sellPrice})">🍽️</div>`;
+    
     card.innerHTML = `
       ${imgHtml}
       <div class="menu-card-body">
@@ -315,8 +361,8 @@ function updateCart(itemId, delta) {
 }
 
 function refreshCard(itemId) {
-  DB.menuItems = JSON.parse(localStorage.getItem('mc_menu') || '[]');
-  const item = DB.menuItems.find(m => m.id == itemId);
+  const menuItems = JSON.parse(localStorage.getItem('mc_menu') || '[]');
+  const item = menuItems.find(m => m.id == itemId);
   if(!item) return;
   const card = document.getElementById(`card-${itemId}`);
   if(!card) return;
@@ -325,30 +371,34 @@ function refreshCard(itemId) {
   if(!controls) return;
   controls.innerHTML = qty > 0 ? `
     <div class="qty-ctrl">
-      <button class="qty-btn" onclick="updateCart(${itemId},-1)">−</button>
+      <button class="qty-btn" onclick="updateCart('${itemId}',-1)">−</button>
       <span class="qty-num">${qty}</span>
-      <button class="qty-btn" onclick="updateCart(${itemId},1)">+</button>
+      <button class="qty-btn" onclick="updateCart('${itemId}',1)">+</button>
     </div>
-  ` : `<button class="add-btn" onclick="updateCart(${itemId},1)">${t('addToCart', currentLang)}</button>`;
+  ` : `<button class="add-btn" onclick="updateCart('${itemId}',1)">${t('addToCart', currentLang)}</button>`;
 }
 
 function updateCartFAB() {
   const total = getCartTotal();
   const count = getCartCount();
   const fab = document.getElementById('cartFab');
+  if(!fab) return;
+  
   if(count > 0) {
     fab.style.display = 'flex';
-    document.getElementById('cartCount').textContent = count;
-    document.getElementById('cartTotal').textContent = formatPrice(total + getServiceFee()) + ' ' + t('sum', currentLang);
+    const cEl = document.getElementById('cartCount');
+    const tEl = document.getElementById('cartTotal');
+    if(cEl) cEl.textContent = count;
+    if(tEl) tEl.textContent = formatPrice(total + getServiceFee()) + ' ' + t('sum', currentLang);
   } else {
     fab.style.display = 'none';
   }
 }
 
 function getCartTotal() {
-  DB.menuItems = JSON.parse(localStorage.getItem('mc_menu') || '[]');
+  const menuItems = JSON.parse(localStorage.getItem('mc_menu') || '[]');
   return Object.entries(cart).reduce((sum, [id, qty]) => {
-    const item = DB.menuItems.find(m => m.id == id);
+    const item = menuItems.find(m => m.id == id);
     return sum + (item ? item.sellPrice * qty : 0);
   }, 0);
 }
@@ -364,35 +414,38 @@ function getCartCount() {
 
 function openCart() {
   const modal = document.getElementById('cartModal');
-  modal.classList.add('active');
+  if(modal) modal.classList.add('active');
   syncGuestInputs();
   renderCartItems();
 }
 
 function closeCart() {
-  document.getElementById('cartModal').classList.remove('active');
+  const modal = document.getElementById('cartModal');
+  if(modal) modal.classList.remove('active');
 }
 
 function renderCartItems() {
-  DB.menuItems = JSON.parse(localStorage.getItem('mc_menu') || '[]');
+  const menuItems = JSON.parse(localStorage.getItem('mc_menu') || '[]');
   const container = document.getElementById('cartItems');
   const footer = document.getElementById('cartFooter');
   const emptyEl = document.getElementById('emptyCart');
   const count = getCartCount();
   syncGuestInputs();
 
+  if(!container) return;
+
   if(count === 0) {
     container.innerHTML = '';
-    footer.style.display = 'none';
-    emptyEl.style.display = 'flex';
+    if(footer) footer.style.display = 'none';
+    if(emptyEl) emptyEl.style.display = 'flex';
     return;
   }
-  emptyEl.style.display = 'none';
-  footer.style.display = 'block';
+  if(emptyEl) emptyEl.style.display = 'none';
+  if(footer) footer.style.display = 'block';
 
   container.innerHTML = '';
   Object.entries(cart).forEach(([id, qty]) => {
-    const item = DB.menuItems.find(m => m.id == id);
+    const item = menuItems.find(m => m.id == id);
     if(!item || qty === 0) return;
     const itemName = item['name_' + currentLang] || item.name;
     const div = document.createElement('div');
@@ -407,9 +460,9 @@ function renderCartItems() {
         <div class="cart-item-price">${formatPrice(item.sellPrice * qty)} ${t('sum', currentLang)}</div>
       </div>
       <div class="cart-item-qty">
-        <button class="cq-btn" onclick="updateCartModal(${id},-1)">−</button>
+        <button class="cq-btn" onclick="updateCartModal('${id}',-1)">−</button>
         <span class="cq-num">${qty}</span>
-        <button class="cq-btn" onclick="updateCartModal(${id},1)">+</button>
+        <button class="cq-btn" onclick="updateCartModal('${id}',1)">+</button>
       </div>
     `;
     container.appendChild(div);
@@ -420,14 +473,18 @@ function renderCartItems() {
   const grandTotal = total + fee;
 
   const feeRow = document.getElementById('serviceFeeRow');
-  if(fee > 0) {
-    feeRow.style.display = 'flex';
-    document.getElementById('cartServiceFeeAmount').textContent = formatPrice(fee) + ' ' + t('sum', currentLang);
-  } else {
-    feeRow.style.display = 'none';
+  if(feeRow) {
+    if(fee > 0) {
+      feeRow.style.display = 'flex';
+      const feeAmt = document.getElementById('cartServiceFeeAmount');
+      if(feeAmt) feeAmt.textContent = formatPrice(fee) + ' ' + t('sum', currentLang);
+    } else {
+      feeRow.style.display = 'none';
+    }
   }
 
-  document.getElementById('cartTotalAmount').textContent = formatPrice(grandTotal) + ' ' + t('sum', currentLang);
+  const totalAmt = document.getElementById('cartTotalAmount');
+  if(totalAmt) totalAmt.textContent = formatPrice(grandTotal) + ' ' + t('sum', currentLang);
 }
 
 function updateCartModal(itemId, delta) {
@@ -438,11 +495,13 @@ function updateCartModal(itemId, delta) {
 // ---- PLACE ORDER ----
 function placeOrder() {
   if(getCartCount() === 0) return;
-  DB.menuItems = JSON.parse(localStorage.getItem('mc_menu') || '[]');
-  const note = document.getElementById('orderNote')?.value || '';
+  const menuItems = JSON.parse(localStorage.getItem('mc_menu') || '[]');
+  const noteEl = document.getElementById('orderNote');
+  const note = noteEl ? noteEl.value : '';
+  
   const items = Object.entries(cart).map(([id, qty]) => {
-    const item = DB.menuItems.find(m => m.id == id);
-    return { menuItemId: parseInt(id), name: item?.name, qty, price: item?.sellPrice, categoryId: item?.categoryId };
+    const item = menuItems.find(m => m.id == id);
+    return { menuItemId: isNaN(id) ? id : parseInt(id), name: item?.name, qty, price: item?.sellPrice, categoryId: item?.categoryId };
   }).filter(x => x.qty > 0);
 
   const feePerGuest = parseInt(localStorage.getItem('mc_service_fee')) || 0;
@@ -456,7 +515,7 @@ function placeOrder() {
     });
   }
 
-  const order = DB.addOrder({
+  const order = (typeof DB !== 'undefined' && DB.addOrder) ? DB.addOrder({
     tableId: selectedTable.id,
     tableName: selectedTable.name,
     guestCount,
@@ -464,67 +523,77 @@ function placeOrder() {
     note,
     lang: currentLang,
     totalPrice: getCartTotal() + getServiceFee()
-  });
+  }) : null;
 
-  DB.broadcast('new_order', order);
+  if(typeof DB !== 'undefined' && DB.broadcast && order) {
+    DB.broadcast('new_order', order);
+  }
 
-  // Buyurtma yuborildi — sahifani to'liq reset qilish
   cart = {};
   updateCartFAB();
   closeCart();
   showToast(t('orderSent', currentLang));
 
-  // 1.5 soniyadan keyin stol tanlash modaliga qaytarish
   setTimeout(() => {
     resetToTableModal();
   }, 1500);
 }
 
-// ---- RESET: Stol tanlash modaliga qaytarish ----
+// ---- RESET ----
 function resetToTableModal() {
-  // Sahifani yashirish
-  document.getElementById('menuPage').classList.add('hidden');
-  // Barcha modalni yopish (langModal ham ochiq qolmasin)
+  const menuPage = document.getElementById('menuPage');
+  if(menuPage) menuPage.classList.add('hidden');
+  
   hideLangModal();
-  document.getElementById('tableModal').classList.remove('active');
-  // Stol va mehmon sonini tozalash
+  const tableModal = document.getElementById('tableModal');
+  if(tableModal) tableModal.classList.remove('active');
+  
   selectedTable = null;
   setGuestCount(1);
+  
   const openBtn = document.getElementById('openMenuBtn');
   if(openBtn) openBtn.disabled = true;
-  // Savat tozalash
+  
   cart = {};
   updateCartFAB();
-  // Stol modalini ko'rsatish (showTableModal() ichida langModal yashiriladi)
   showTableModal();
 }
 
 // ---- WAITER CALL ----
 function callWaiter() {
   if(!selectedTable) return;
+  const calls = (typeof DB !== 'undefined' && DB.waiterCalls) ? DB.waiterCalls : [];
   const call = {
-    id: DB.nextId(DB.waiterCalls),
+    id: (typeof DB !== 'undefined' && DB.nextId) ? DB.nextId(calls) : Date.now(),
     tableId: selectedTable.id,
     tableName: selectedTable.name,
     ts: new Date().toISOString(),
     status: 'pending'
   };
-  DB.waiterCalls.push(call);
-  DB.save('waiterCalls');
-  DB.broadcast('waiter_call', call);
+  
+  if(typeof DB !== 'undefined') {
+    if(!DB.waiterCalls) DB.waiterCalls = [];
+    DB.waiterCalls.push(call);
+    if(DB.save) DB.save('waiterCalls');
+    if(DB.broadcast) DB.broadcast('waiter_call', call);
+  }
   
   const btn = document.getElementById('callWaiterBtn');
-  btn.classList.add('calling');
-  setTimeout(() => btn.classList.remove('calling'), 3000);
+  if(btn) {
+    btn.classList.add('calling');
+    setTimeout(() => btn.classList.remove('calling'), 3000);
+  }
   showToast(t('waiterCalled', currentLang));
 }
 
 // ---- LANG CHANGE ----
 function showLangChange() {
-  document.getElementById('langChangeModal').classList.add('active');
+  const modal = document.getElementById('langChangeModal');
+  if(modal) modal.classList.add('active');
 }
 function closeLangChange() {
-  document.getElementById('langChangeModal').classList.remove('active');
+  const modal = document.getElementById('langChangeModal');
+  if(modal) modal.classList.remove('active');
 }
 function changeLang(lang) {
   currentLang = lang;
@@ -538,27 +607,35 @@ function changeLang(lang) {
 // ---- TABLE CHANGE ----
 function showTableChange() {
   renderTableGrid('tableChangeGrid');
-  document.getElementById('tableChangeModal').classList.add('active');
+  const modal = document.getElementById('tableChangeModal');
+  if(modal) modal.classList.add('active');
 }
 function closeTableChange() {
-  document.getElementById('tableChangeModal').classList.remove('active');
+  const modal = document.getElementById('tableChangeModal');
+  if(modal) modal.classList.remove('active');
 }
 
 // ---- IMAGE MODAL ----
 function openImgModal(src, name, price) {
   const modal = document.getElementById('imgModal');
-  document.getElementById('imgModalSrc').src = src || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="%23251407"/><text x="100" y="110" font-size="60" text-anchor="middle">🍽️</text></svg>';
-  document.getElementById('imgModalName').textContent = name;
-  document.getElementById('imgModalPrice').textContent = formatPrice(price) + ' ' + t('sum', currentLang);
-  modal.classList.add('active');
+  const imgEl = document.getElementById('imgModalSrc');
+  const nameEl = document.getElementById('imgModalName');
+  const priceEl = document.getElementById('imgModalPrice');
+  
+  if(imgEl) imgEl.src = src || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="%23251407"/><text x="100" y="110" font-size="60" text-anchor="middle">🍽️</text></svg>';
+  if(nameEl) nameEl.textContent = name;
+  if(priceEl) priceEl.textContent = formatPrice(price) + ' ' + t('sum', currentLang);
+  if(modal) modal.classList.add('active');
 }
 function closeImgModal() {
-  document.getElementById('imgModal').classList.remove('active');
+  const modal = document.getElementById('imgModal');
+  if(modal) modal.classList.remove('active');
 }
 
 // ---- TOAST ----
 function showToast(msg) {
   const el = document.getElementById('toast');
+  if(!el) return;
   el.textContent = msg;
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2500);
@@ -575,12 +652,12 @@ function setupPWA() {
     e.preventDefault();
     deferredPrompt = e;
     
-    // Headerdagi install tugmasini ko'rsatish
     const headerInstallBtn = document.getElementById('headerInstallBtn');
     if(headerInstallBtn) headerInstallBtn.style.display = 'flex';
 
-    if(!localStorage.getItem('mc_pwa_dismissed')) {
-      document.getElementById('installBanner').style.display = 'flex';
+    const banner = document.getElementById('installBanner');
+    if(banner && !localStorage.getItem('mc_pwa_dismissed')) {
+      banner.style.display = 'flex';
     }
   });
 }
@@ -593,39 +670,43 @@ function installPWA() {
       if(headerInstallBtn) headerInstallBtn.style.display = 'none';
     });
   }
-  document.getElementById('installBanner').style.display = 'none';
+  const banner = document.getElementById('installBanner');
+  if(banner) banner.style.display = 'none';
 }
 function dismissInstall() {
   localStorage.setItem('mc_pwa_dismissed','1');
-  document.getElementById('installBanner').style.display = 'none';
+  const banner = document.getElementById('installBanner');
+  if(banner) banner.style.display = 'none';
 }
 
 // ---- REALTIME ----
 function listenRealtime() {
-  // Firestore real-time (boshqa qurilmalar / boshqa sahifalar)
   window.addEventListener('mc:data_changed', e => {
     const { key, items } = e.detail;
     if(key === 'tables') {
-      DB.tables = items;
+      if(typeof DB !== 'undefined') DB.tables = items;
       _refreshTableUI();
     }
     if(key === 'menuItems') {
-      DB.menuItems = items;
-      if(!document.getElementById('menuPage').classList.contains('hidden')) {
+      if(typeof DB !== 'undefined') DB.menuItems = items;
+      const menuPage = document.getElementById('menuPage');
+      if(menuPage && !menuPage.classList.contains('hidden')) {
         loadCategories();
         loadMenuItems();
       }
     }
   });
-  // localStorage real-time (bir qurilmadagi boshqa tablar)
   window.addEventListener('storage', e => {
     if(e.key === 'mc_tables') {
-      DB.tables = JSON.parse(e.newValue || '[]');
+      try {
+        const parsed = JSON.parse(e.newValue || '[]');
+        if(typeof DB !== 'undefined') DB.tables = parsed;
+      } catch(err) {}
       _refreshTableUI();
     }
     if(e.key === 'mc_menu') {
-      DB.menuItems = JSON.parse(e.newValue || '[]');
-      if(!document.getElementById('menuPage').classList.contains('hidden')) {
+      const menuPage = document.getElementById('menuPage');
+      if(menuPage && !menuPage.classList.contains('hidden')) {
         loadCategories();
         loadMenuItems();
       }
@@ -633,21 +714,16 @@ function listenRealtime() {
   });
 }
 
-// Stol holati o'zgarganda barcha UI ni yangilash
 function _refreshTableUI() {
-  // TableModal ochiq bo'lsa — table counter ni yangilash
   const tableModal = document.getElementById('tableModal');
   if(tableModal && tableModal.classList.contains('active')) {
     updateTableDisplay();
-    // Agar tableGrid render qilingan bo'lsa (eski ochiq modal)
     const tg = document.getElementById('tableGrid');
     if(tg && tg.children.length > 0) renderTableGrid('tableGrid');
   }
-  // TableChange modal ochiq bo'lsa
   const tcModal = document.getElementById('tableChangeModal');
   if(tcModal && tcModal.classList.contains('active')) {
     renderTableGrid('tableChangeGrid');
   }
-  // Header badge ni yangilash
   updateHeaderTable();
 }
